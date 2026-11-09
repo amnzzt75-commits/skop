@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teknik Menulis: SKOP - Nota & Permainan Interaktif (Whiteboard Kamera)</title>
+  <!-- MediaPipe Hands CDN untuk pengesanan tangan di Whiteboard Biasa -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --s-color: #3b82f6;
+      --s-bg: #dbeafe;
+      --k-color: #ef4444;
+      --k-bg: #fee2e2;
+      --o-color: #10b981;
+      --o-bg: #d1fae5;
+      --p-color: #eab308;
+      --p-bg: #fef9c3;
+      --dark: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 15px;
+      background: #f1f5f9;
+      color: var(--dark);
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      position: relative;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2.3rem;
+      margin: 5px 0 15px;
+      letter-spacing: 1px;
+    }
+    .s-txt { color: var(--s-color); }
+    .k-txt { color: var(--k-color); }
+    .o-txt { color: var(--o-color); }
+    .p-txt { color: var(--p-color); }
+
+    /* Navigasi Tab */
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 12px 22px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      background: #e2e8f0;
+      color: #475569;
+      transition: 0.25s;
+    }
+    .tab-btn.active {
+      background: #1e293b;
+      color: #ffffff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* Kad Nota SKOP */
+    .skop-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    @media (max-width: 850px) {
+      .skop-cards { grid-template-columns: repeat(2, 1fr); }
+    }
+    .card {
+      border-radius: 16px;
+      overflow: hidden;
+      border: 3px solid;
+      background: #fff;
+    }
+    .card-s { border-color: var(--s-color); background: var(--s-bg); }
+    .card-k { border-color: var(--k-color); background: var(--k-bg); }
+    .card-o { border-color: var(--o-color); background: var(--o-bg); }
+    .card-p { border-color: var(--p-color); background: var(--p-bg); }
+
+    .card-header {
+      padding: 10px;
+      text-align: center;
+      color: #fff;
+      font-weight: bold;
+      font-size: 1.15rem;
+    }
+    .card-s .card-header { background: var(--s-color); }
+    .card-k .card-header { background: var(--k-color); }
+    .card-o .card-header { background: var(--o-color); }
+    .card-p .card-header { background: var(--p-color); }
+
+    .card-header small {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: normal;
+      opacity: 0.95;
+    }
+    .card-items {
+      display: flex;
+      justify-content: space-around;
+      padding: 12px 6px;
+      gap: 6px;
+    }
+    .word-item {
+      background: #fff;
+      border-radius: 10px;
+      padding: 8px 6px;
+      text-align: center;
+      cursor: pointer;
+      flex: 1;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+      transition: transform 0.15s;
+    }
+    .word-item:hover { transform: scale(1.07); }
+    .word-item .emoji { font-size: 1.8rem; display: block; }
+    .word-item span { font-size: 0.9rem; font-weight: bold; display: block; margin-top: 4px; }
+
+    /* Jadual SKOP */
+    table.skop-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    table.skop-table th, table.skop-table td {
+      border: 3px solid #1e293b;
+      padding: 14px;
+      text-align: center;
+      font-size: 1.2rem;
+      width: 25%;
+    }
+    .th-s { background: var(--s-color); color: #fff; font-size: 1.6rem; }
+    .th-k { background: var(--k-color); color: #fff; font-size: 1.6rem; }
+    .th-o { background: var(--o-color); color: #fff; font-size: 1.6rem; }
+    .th-p { background: var(--p-color); color: #fff; font-size: 1.6rem; }
+    td.active-row { background: #f8fafc; font-weight: bold; }
+
+    /* MOD 1: DAM ULAR */
+    .snake-layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 850px) {
+      .snake-layout { grid-template-columns: 1fr; }
+    }
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      background: #1e293b;
+      padding: 10px;
+      border-radius: 16px;
+    }
+    .tile {
+      height: 85px;
+      border-radius: 12px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-weight: bold;
+      position: relative;
+      background: #fff;
+    }
+    .tile-num { font-size: 0.95rem; opacity: 0.75; }
+    .tile-badge { font-size: 0.8rem; text-align: center; border-radius: 6px; padding: 2px 4px; }
+    .tokens-wrap { display: flex; gap: 6px; justify-content: center; font-size: 1.5rem; }
+
+    /* MOD 2: 1 VS 1 WHITEBOARD BIASA + KAMERA TANGAN */
+    .cam-control-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 14px;
+      margin-bottom: 14px;
+    }
+    .cam-preview-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #webcamVideo {
+      width: 150px;
+      height: 95px;
+      border-radius: 10px;
+      border: 2px solid #38bdf8;
+      object-fit: cover;
+      transform: scaleX(-1);
+      background: #000;
+    }
+    .shared-question-banner {
+      background: linear-gradient(135deg, #1e293b, #334155);
+      color: #fff;
+      text-align: center;
+      padding: 16px;
+      border-radius: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.12);
+    }
+    .shared-question-banner h2 {
+      margin: 6px 0;
+      font-size: 2rem;
+      color: #fde047;
+    }
+    .vs-arena {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .player-zone {
+      border-radius: 18px;
+      padding: 18px;
+      border: 4px solid;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 410px;
+    }
+    .p1-zone { border-color: var(--s-color); background: #eff6ff; }
+    .p2-zone { border-color: var(--k-color); background: #fef2f2; }
+
+    .p-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.4rem;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+    .wb-btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      flex: 1;
+    }
+    .wb-touch-btn {
+      border: none;
+      border-radius: 16px;
+      font-size: 1.45rem;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 18px 10px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+      transition: transform 0.12s, filter 0.2s;
+    }
+    .wb-touch-btn:active, .wb-touch-btn.hand-hover {
+      transform: scale(0.96);
+      outline: 5px solid #ffffff;
+      box-shadow: 0 0 25px rgba(255,255,255,0.9);
+    }
+    .btn-s { background: var(--s-color); }
+    .btn-k { background: var(--k-color); }
+    .btn-o { background: var(--o-color); }
+    .btn-p { background: var(--p-color); color: #1e293b; }
+
+    /* Bar kemajuan sentuhan tangan pada papan putih biasa */
+    .dwell-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 10px;
+      background: rgba(255,255,255,0.85);
+      width: 0%;
+      transition: width 0.08s linear;
+    }
+
+    /* Kursor Tangan Maya di Atas Skrin */
+    .hand-cursor {
+      position: fixed;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      box-shadow: 0 0 18px rgba(0,0,0,0.45);
+      border: 4px solid #fff;
+      transform: translate(-50%, -50%);
+    }
+    #cursorP1 { background: rgba(59, 130, 246, 0.9); }
+    #cursorP2 { background: rgba(239, 68, 68, 0.9); }
+
+    /* Butang Umum */
+    .action-btn {
+      padding: 12px 20px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+    }
+    .action-btn:hover { opacity: 0.92; }
+  </style>
+</head>
+<body>
+
+<!-- Kursor Tangan Maya untuk Pemain 1 (Kiri) & Pemain 2 (Kanan) di Papan Putih Biasa -->
+<div id="cursorP1" class="hand-cursor">✋</div>
+<div id="cursorP2" class="hand-cursor">✋</div>
+
+<div class="container">
+  <h1>TEKNIK MENULIS: <span class="s-txt">S</span><span class="k-txt">K</span><span class="o-txt">O</span><span class="p-txt">P</span></h1>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('nota', this)">📘 Nota & Bina Ayat</button>
+    <button class="tab-btn" onclick="switchTab('dam', this)">🐍 Mod 1: Dam Ular</button>
+    <button class="tab-btn" onclick="switchTab('vs', this)">⚔️ Mod 2: 1 vs 1 (Whiteboard Kamera)</button>
+    <button class="tab-btn" onclick="switchTab('kuiz', this)">📝 Mod 3: Kuiz Biasa</button>
+  </div>
+
+  <!-- ================= TAB 1: NOTA INTERAKTIF ================= -->
+  <div id="nota" class="section active">
+    <p style="text-align:center; font-size:1.05rem; margin-top:0;">
+      💡 <strong>Klik mana-mana kad perkataan</strong> di bawah untuk memasukkannya ke dalam jadual bina ayat secara automatik!
+    </p>
+
+    <div class="skop-cards">
+      <div class="card card-s">
+        <div class="card-header">S - Subjek <small>(Siapa / Apa)</small></div>
+        <div class="card-items">
+          <div class="word-item" onclick="insertWord('S', 'Ali')"><span class="emoji">👦</span><span>Ali</span></div>
+          <div class="word-item" onclick="insertWord('S', 'Ibu')"><span class="emoji">👩</span><span>Ibu</span></div>
+          <div class="word-item" onclick="insertWord('S', 'Polis')"><span class="emoji">👮‍♂️</span><span>Polis</span></div>
+        </div>
+      </div>
+
+      <div class="card card-k">
+        <div class="card-header">K - Kata Kerja <small>(Apa yang dibuat)</small></div>
+        <div class="card-items">
+          <div class="word-item" onclick="insertWord('K', 'membaca')"><span class="emoji">✍️</span><span>membaca</span></div>
+          <div class="word-item" onclick="insertWord('K', 'menyapu')"><span class="emoji">🧹</span><span>menyapu</span></div>
+          <div class="word-item" onclick="insertWord('K', 'menangkap')"><span class="emoji">🚓</span><span>menangkap</span></div>
+        </div>
+      </div>
+
+      <div class="card card-o">
+        <div class="card-header">O - Objek <small>(Apa?)</small></div>
+        <div class="card-items">
+          <div class="word-item" onclick="insertWord('O', 'buku')"><span class="emoji">📖</span><span>buku</span></div>
+          <div class="word-item" onclick="insertWord('O', 'sampah')"><span class="emoji">🗑️</span><span>sampah</span></div>
+          <div class="word-item" onclick="insertWord('O', 'penjahat')"><span class="emoji">🦹‍♂️</span><span>penjahat</span></div>
+        </div>
+      </div>
+
+      <div class="card card-p">
+        <div class="card-header">P - Penerangan <small>(Di mana, Bila, Mengapa)</small></div>
+        <div class="card-items">
+          <div class="word-item" onclick="insertWord('P', 'di sekolah')"><span class="emoji">🏫</span><span>di sekolah</span></div>
+          <div class="word-item" onclick="insertWord('P', 'setiap pagi')"><span class="emoji">🌅</span><span>setiap pagi</span></div>
+          <div class="word-item" onclick="insertWord('P', 'kerana mencuri')"><span class="emoji">🚫</span><span>kerana mencuri</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px;">
+      <div>
+        <strong>Baris Jadual Aktif:</strong>
+        <button class="action-btn" style="padding:6px 14px;" onclick="setRow(0)">Baris 1</button>
+        <button class="action-btn" style="padding:6px 14px;" onclick="setRow(1)">Baris 2</button>
+        <button class="action-btn" style="padding:6px 14px;" onclick="setRow(2)">Baris 3</button>
+      </div>
+      <button class="action-btn" style="background:#dc2626; padding:6px 14px;" onclick="clearTable()">🗑️ Kosongkan Jadual</button>
+    </div>
+
+    <table class="skop-table">
+      <thead>
+        <tr>
+          <th class="th-s">S</th>
+          <th class="th-k">K</th>
+          <th class="th-o">O</th>
+          <th class="th-p">P</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- ================= TAB 2: MOD 1 DAM ULAR ================= -->
+  <div id="dam" class="section">
+    <div class="snake-layout">
+      <div class="board-grid" id="snakeBoard"></div>
+      <div style="background:#f8fafc; padding:18px; border-radius:16px; border:2px solid #cbd5e1;">
+        <h3 style="margin-top:0;">🐍 Panel Kawalan Dam Ular</h3>
+        <p id="turnBanner" style="font-size:1.15rem; font-weight:bold; color:#2563eb;">Giliran: Pemain 1 (🔵)</p>
+        <button class="action-btn" id="rollBtn" onclick="rollDice()" style="width:100%; font-size:1.25rem; padding:14px;">🎲 Baling Dadu</button>
+        <p id="diceStatus" style="text-align:center; font-size:1.2rem; font-weight:bold; margin:12px 0;">Klik Baling Dadu untuk mula!</p>
+
+        <div id="snakeQuizBox" style="display:none; background:#fff; padding:14px; border-radius:12px; border:2px solid #94a3b8; margin-top:12px;">
+          <p style="margin:0 0 8px; font-weight:bold;">Soalan Pengesahan Langkah:</p>
+          <h4 id="snakeQText" style="margin:0 0 12px; font-size:1.3rem; color:#0f172a;"></h4>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <button class="action-btn" style="background:var(--s-color)" onclick="answerSnake('S')">S - Subjek</button>
+            <button class="action-btn" style="background:var(--k-color)" onclick="answerSnake('K')">K - Kata Kerja</button>
+            <button class="action-btn" style="background:var(--o-color)" onclick="answerSnake('O')">O - Objek</button>
+            <button class="action-btn" style="background:var(--p-color); color:#000;" onclick="answerSnake('P')">P - Penerangan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB 3: MOD 2 1 VS 1 (WHITEBOARD BIASA + KAMERA TANGAN) ================= -->
+  <div id="vs" class="section">
+    <div class="cam-control-bar">
+      <div>
+        <strong style="font-size:1.15rem;">📷 Mod Kawalan Tangan di Whiteboard Biasa (Projektor):</strong>
+        <div style="font-size:0.9rem; color:#cbd5e1; margin-top:3px;">
+          Halakan kamera laptop ke arah papan putih biasa. Murid berdiri di kiri & kanan papan putih dan <strong>tekan/tahan tapak tangan (0.6s)</strong> pada kotak warna yang dipancarkan!
+        </div>
+      </div>
+      <div class="cam-preview-wrap">
+        <video id="webcamVideo" playsinline muted></video>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <button class="action-btn" id="camToggleBtn" style="background:#10b981;" onclick="toggleCameraHandMode()">🎥 Aktifkan Kamera Tangan</button>
+          <button class="action-btn" style="background:#f59e0b; padding:8px 14px;" onclick="reset1v1()">🔄 Mula Semula 1 vs 1</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="shared-question-banner">
+      <div style="font-size:1rem; opacity:0.9;">TEKAN KOMPONEN SKOP YANG BETUL DI PAPAN PUTIH!</div>
+      <h2 id="vsQuestionText">"menyapu"</h2>
+      <div id="vsFeedbackText" style="font-size:1.1rem; font-weight:bold; min-height:24px;">Siapa cepat tekan di papan putih, dia dapat mata!</div>
+    </div>
+
+    <div class="vs-arena">
+      <!-- ZON PEMAIN 1 (SEBELAH KIRI WHITEBOARD) -->
+      <div class="player-zone p1-zone">
+        <div class="p-header" style="color:var(--s-color);">
+          <span>🔵 PEMAIN 1 (Kiri)</span>
+          <span>Markah: <span id="p1Score">0</span></span>
+        </div>
+        <div class="wb-btn-grid">
+          <button class="wb-touch-btn btn-s" data-player="1" data-ans="S" onclick="handle1v1Answer(1, 'S')">
+            S<span>(Subjek)</span>
+            <div class="dwell-progress"></div>
+          </button>
+          <button class="wb-touch-btn btn-k" data-player="1" data-ans="K" onclick="handle1v1Answer(1, 'K')">
+            K<span>(Kata Kerja)</span>
+            <div class="dwell-progress"></div>
+          </button>
+          <button class="wb-touch-btn btn-o" data-player="1" data-ans="O" onclick="handle1v1Answer(1, 'O')">
+            O<span>(Objek)</span>
+            <div class="dwell-progress"></div>
+          </button>
+          <button class="wb-touch-btn btn-p" data-player="1" data-ans="P" onclick="handle1v1Answer(1, 'P')">
+            P<span>(Penerangan)</span>
+            <div class="dwell-progress"></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- ZON PEMAIN 2 (SEBELAH KANAN WHITEBOARD) -->
+      <div class="player-zone p2-zone">
+        <div class="p-header" style="color:var(--k-color);">
+          <span>🔴 PEMAIN 2 (Kanan)</span>
+          <span>Markah: <span id="p2Score">0</span></span>
+        </div>
+        <div class="wb-btn-grid">
+          <button class="wb-touch-btn btn-s" data-player="2" data-ans="S" onclick="handle1v1Answer(2, 'S')">
+            S<span>(Subjek)</span>
+            <div class="dwell-progress"></div>
+          </button>
+          <button class="wb-touch-btn btn-k" data-player="2" data-ans="K" onclick="handle1v1Answer(2, 'K')">
+            K<span>(Kata Kerja)</span>
+            <div class="dwell-progress"></div>
+          </button>
+          <button class="wb-touch-btn btn-o" data-player="2" data-ans="O" onclick="handle1v1Answer(2, 'O')">
+            O<span>(Objek)</span>
+            <div class="dwell-progress"></div>
+          </button>
+          <button class="wb-touch-btn btn-p" data-player="2" data-ans="P" onclick="handle1v1Answer(2, 'P')">
+            P<span>(Penerangan)</span>
+            <div class="dwell-progress"></div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB 4: MOD 3 KUIZ BIASA ================= -->
+  <div id="kuiz" class="section">
+    <div style="background:#f8fafc; padding:22px; border-radius:16px; border:2px solid #cbd5e1; max-width:780px; margin:0 auto; text-align:center;">
+      <h3 style="margin-top:0;">📝 Kuiz Individu: Kenal Pasti Komponen SKOP</h3>
+      <p style="font-size:1.1rem;">Markah Semasa: <strong id="soloScore">0</strong> / <span id="soloTotal">0</span></p>
+      <div style="background:#1e293b; color:#fde047; padding:20px; border-radius:14px; font-size:1.8rem; font-weight:bold; margin:15px 0;" id="soloQBox">
+        "di sekolah"
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:15px;">
+        <button class="wb-touch-btn btn-s" style="font-size:1.25rem; padding:16px;" onclick="answerSolo('S')">S - Subjek (Siapa/Apa)</button>
+        <button class="wb-touch-btn btn-k" style="font-size:1.25rem; padding:16px;" onclick="answerSolo('K')">K - Kata Kerja (Perbuatan)</button>
+        <button class="wb-touch-btn btn-o" style="font-size:1.25rem; padding:16px;" onclick="answerSolo('O')">O - Objek (Sasaran)</button>
+        <button class="wb-touch-btn btn-p" style="font-size:1.25rem; padding:16px;" onclick="answerSolo('P')">P - Penerangan (Masa/Tempat/Sebab)</button>
+      </div>
+      <p id="soloFeedback" style="font-size:1.2rem; font-weight:bold; min-height:28px; margin-top:15px;"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // BANK SOALAN SKOP
+  const questionBank = [
+    { word: "Ali", type: "S" },
+    { word: "Ibu", type: "S" },
+    { word: "Polis", type: "S" },
+    { word: "Cikgu Aiman", type: "S" },
+    { word: "Adik", type: "S" },
+    { word: "membaca", type: "K" },
+    { word: "menyapu", type: "K" },
+    { word: "menangkap", type: "K" },
+    { word: "menulis", type: "K" },
+    { word: "membasuh", type: "K" },
+    { word: "buku", type: "O" },
+    { word: "sampah", type: "O" },
+    { word: "penjahat", type: "O" },
+    { word: "kasut sekolah", type: "O" },
+    { word: "nota", type: "O" },
+    { word: "di sekolah", type: "P" },
+    { word: "setiap pagi", type: "P" },
+    { word: "kerana mencuri", type: "P" },
+    { word: "di perpustakaan", type: "P" },
+    { word: "dengan kemas", type: "P" }
+  ];
+
+  // NAVIGASI TAB
+  function switchTab(id, btn) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // ================= LOGIK TAB 1: JADUAL NOTA =================
+  let currentRow = 0;
+  let rowsData = [
+    { S: "Ali", K: "membaca", O: "buku", P: "di sekolah" },
+    { S: "", K: "", O: "", P: "" },
+    { S: "", K: "", O: "", P: "" }
+  ];
+
+  function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    rowsData.forEach((r, idx) => {
+      const tr = document.createElement('tr');
+      ['S', 'K', 'O', 'P'].forEach(col => {
+        const td = document.createElement('td');
+        if (idx === currentRow) td.classList.add('active-row');
+        td.textContent = r[col] || '...';
+        td.onclick = () => { currentRow = idx; renderTable(); };
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function insertWord(col, word) {
+    rowsData[currentRow][col] = word;
+    renderTable();
+  }
+  function setRow(idx) { currentRow = idx; renderTable(); }
+  function clearTable() {
+    rowsData = [{ S:"",K:"",O:"",P:"" }, { S:"",K:"",O:"",P:"" }, { S:"",K:"",O:"",P:"" }];
+    renderTable();
+  }
+  renderTable();
+
+  // ================= LOGIK TAB 2: DAM ULAR =================
+  let pPos = [1, 1];
+  let turn = 0;
+  let pendingSteps = 0;
+  let currentSnakeQ = null;
+  const ladders = { 4: 10, 8: 15, 13: 21 };
+  const snakes = { 12: 5, 18: 9, 24: 16 };
+
+  function renderSnakeBoard() {
+    const board = document.getElementById('snakeBoard');
+    board.innerHTML = '';
+    const colors = ['#dbeafe', '#fee2e2', '#d1fae5', '#fef9c3'];
+    for (let i = 25; i >= 1; i--) {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.style.background = colors[(i - 1) % 4];
+      let special = '';
+      if (ladders[i]) special = `<div class="tile-badge" style="background:#bbf7d0;">🪜 Naik ${ladders[i]}</div>`;
+      if (snakes[i]) special = `<div class="tile-badge" style="background:#fecaca;">🐍 Turun ${snakes[i]}</div>`;
+      if (i === 25) special = `<div class="tile-badge" style="background:#fde047;">🏆 TAMAT</div>`;
+
+      let tokens = '';
+      if (pPos[0] === i) tokens += '🔵';
+      if (pPos[1] === i) tokens += '🔴';
+
+      tile.innerHTML = `
+        <div class="tile-num">#${i}</div>
+        ${special}
+        <div class="tokens-wrap">${tokens}</div>
+      `;
+      board.appendChild(tile);
+    }
+  }
+  renderSnakeBoard();
+
+  function rollDice() {
+    pendingSteps = Math.floor(Math.random() * 6) + 1;
+    document.getElementById('diceStatus').textContent = `🎲 Dadu: ${pendingSteps} langkah! Jawab soalan dahulu:`;
+    document.getElementById('rollBtn').disabled = true;
+    currentSnakeQ = questionBank[Math.floor(Math.random() * questionBank.length)];
+    document.getElementById('snakeQText').textContent = `"${currentSnakeQ.word}" ialah komponen apa?`;
+    document.getElementById('snakeQuizBox').style.display = 'block';
+  }
+
+  function answerSnake(ans) {
+    document.getElementById('snakeQuizBox').style.display = 'none';
+    document.getElementById('rollBtn').disabled = false;
+    if (ans === currentSnakeQ.type) {
+      let next = Math.min(25, pPos[turn] + pendingSteps);
+      let msg = `✅ Betul! Maju ke petak ${next}.`;
+      if (ladders[next]) { next = ladders[next]; msg += ` 🪜 Naik tangga ke petak ${next}!`; }
+      if (snakes[next]) { next = snakes[next]; msg += ` 🐍 Dipatuk ular turun ke petak ${next}!`; }
+      pPos[turn] = next;
+      document.getElementById('diceStatus').textContent = msg;
+      renderSnakeBoard();
+      if (pPos[turn] === 25) {
+        alert(`🎉 Tahniah! Pemain ${turn + 1} menang Dam Ular SKOP!`);
+        pPos = [1, 1];
+        renderSnakeBoard();
+      }
+    } else {
+      document.getElementById('diceStatus').textContent = `❌ Salah! Kekal di petak ${pPos[turn]}.`;
+    }
+    turn = 1 - turn;
+    document.getElementById('turnBanner').textContent = `Giliran: Pemain ${turn + 1} (${turn === 0 ? '🔵' : '🔴'})`;
+  }
+
+  // ================= LOGIK TAB 3: 1 VS 1 (WHITEBOARD BIASA + KAMERA TANGAN) =================
+  let p1Score = 0, p2Score = 0;
+  let currentVsQ = questionBank[0];
+  let roundLocked = false;
+  let pLocked = { 1: false, 2: false };
+
+  function nextVsQuestion() {
+    roundLocked = false;
+    pLocked = { 1: false, 2: false };
+    currentVsQ = questionBank[Math.floor(Math.random() * questionBank.length)];
+    document.getElementById('vsQuestionText').textContent = `"${currentVsQ.word}"`;
+    document.getElementById('vsFeedbackText').textContent = "Sentuh/tekan kotak jawapan pada papan putih sekarang!";
+  }
+
+  function handle1v1Answer(player, ans) {
+    if (roundLocked || pLocked[player]) return;
+    if (ans === currentVsQ.type) {
+      roundLocked = true;
+      if (player === 1) p1Score += 10; else p2Score += 10;
+      document.getElementById('p1Score').textContent = p1Score;
+      document.getElementById('p2Score').textContent = p2Score;
+      document.getElementById('vsFeedbackText').textContent = `🎉 Pemain ${player} ТЕPAT SEKALI (+10 Mata)!`;
+      setTimeout(nextVsQuestion, 1400);
+    } else {
+      pLocked[player] = true;
+      document.getElementById('vsFeedbackText').textContent = `⚠️ Pemain ${player} salah tekan! Peluang terbuka untuk pihak lawan!`;
+      if (pLocked[1] && pLocked[2]) {
+        setTimeout(nextVsQuestion, 1200);
+      }
+    }
+  }
+
+  function reset1v1() {
+    p1Score = 0; p2Score = 0;
+    document.getElementById('p1Score').textContent = '0';
+    document.getElementById('p2Score').textContent = '0';
+    nextVsQuestion();
+  }
+  nextVsQuestion();
+
+  // PENGESANAN TANGAN MEDIAPIPE UNTUK PAPAN PUTIH BIASA (DWELL / TEKAN 0.6 SAAT)
+  let cameraActive = false;
+  let cameraInstance = null;
+  let hoverState = {
+    1: { btn: null, startTime: 0 },
+    2: { btn: null, startTime: 0 }
+  };
+  const DWELL_DURATION = 600; // 0.6 saat tekan di papan putih biasa
+
+  async function toggleCameraHandMode() {
+    const btn = document.getElementById('camToggleBtn');
+    const videoElement = document.getElementById('webcamVideo');
+
+    if (cameraActive) {
+      cameraActive = false;
+      if (cameraInstance) cameraInstance.stop();
+      document.getElementById('cursorP1').style.display = 'none';
+      document.getElementById('cursorP2').style.display = 'none';
+      btn.textContent = '🎥 Aktifkan Kamera Tangan';
+      btn.style.background = '#10b981';
+      return;
+    }
+
+    btn.textContent = '⏳ Memuatkan Kamera...';
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.6
+    });
+
+    hands.onResults(onHandResults);
+
+    cameraInstance = new Camera(videoElement, {
+      onFrame: async () => {
+        if (cameraActive) await hands.send({ image: videoElement });
+      },
+      width: 640,
+      height: 480
+    });
+
+    cameraActive = true;
+    await cameraInstance.start();
+    btn.textContent = '🛑 Matikan Kamera Tangan';
+    btn.style.background = '#ef4444';
+  }
+
+  function onHandResults(results) {
+    const c1 = document.getElementById('cursorP1');
+    const c2 = document.getElementById('cursorP2');
+    c1.style.display = 'none';
+    c2.style.display = 'none';
+
+    // Reset visual hover jika tiada tangan
+    if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+      clearHoverProgress(1);
+      clearHoverProgress(2);
+      return;
+    }
+
+    results.multiHandLandmarks.forEach((landmarks) => {
+      // Gunakan hujung jari telunjuk (Landmark 8) atau tengah tapak tangan (Landmark 9)
+      const pt = landmarks[9];
+      // Pantulan cermin (1 - x) supaya selari dengan kedudukan murid di hadapan papan putih biasa
+      const screenX = (1 - pt.x) * window.innerWidth;
+      const screenY = pt.y * window.innerHeight;
+
+      // Tentukan sama ada tangan berada di separuh Kiri (Pemain 1) atau Kanan (Pemain 2)
+      const playerNum = screenX < (window.innerWidth / 2) ? 1 : 2;
+      const cursor = playerNum === 1 ? c1 : c2;
+
+      cursor.style.display = 'flex';
+      cursor.style.left = `${screenX}px`;
+      cursor.style.top = `${screenY}px`;
+
+      checkButtonDwell(playerNum, screenX, screenY);
+    });
+  }
+
+  function checkButtonDwell(playerNum, x, y) {
+    const el = document.elementFromPoint(x, y);
+    const btn = el ? el.closest('.wb-touch-btn') : null;
+
+    if (btn && Number(btn.dataset.player) === playerNum) {
+      if (hoverState[playerNum].btn !== btn) {
+        clearHoverProgress(playerNum);
+        hoverState[playerNum].btn = btn;
+        hoverState[playerNum].startTime = performance.now();
+        btn.classList.add('hand-hover');
+      } else {
+        const elapsed = performance.now() - hoverState[playerNum].startTime;
+        const pct = Math.min(100, (elapsed / DWELL_DURATION) * 100);
+        const bar = btn.querySelector('.dwell-progress');
+        if (bar) bar.style.width = `${pct}%`;
+
+        if (elapsed >= DWELL_DURATION) {
+          const ans = btn.dataset.ans;
+          clearHoverProgress(playerNum);
+          handle1v1Answer(playerNum, ans);
+        }
+      }
+    } else {
+      clearHoverProgress(playerNum);
+    }
+  }
+
+  function clearHoverProgress(playerNum) {
+    const prevBtn = hoverState[playerNum].btn;
+    if (prevBtn) {
+      prevBtn.classList.remove('hand-hover');
+      const bar = prevBtn.querySelector('.dwell-progress');
+      if (bar) bar.style.width = '0%';
+    }
+    hoverState[playerNum].btn = null;
+    hoverState[playerNum].startTime = 0;
+  }
+
+  // ================= LOGIK TAB 4: KUIZ BIASA =================
+  let soloScore = 0, soloTotal = 0;
+  let currentSoloQ = questionBank[0];
+
+  function nextSoloQ() {
+    currentSoloQ = questionBank[Math.floor(Math.random() * questionBank.length)];
+    document.getElementById('soloQBox').textContent = `"${currentSoloQ.word}"`;
+  }
+
+  function answerSolo(ans) {
+    soloTotal++;
+    if (ans === currentSoloQ.type) {
+      soloScore++;
+      document.getElementById('soloFeedback').textContent = `✅ Tepat sekali! "${currentSoloQ.word}" ialah ${ans}.`;
+      document.getElementById('soloFeedback').style.color = '#16a34a';
+    } else {
+      document.getElementById('soloFeedback').textContent = `❌ Kurang tepat. Jawapan sebenar ialah ${currentSoloQ.type}.`;
+      document.getElementById('soloFeedback').style.color = '#dc2626';
+    }
+    document.getElementById('soloScore').textContent = soloScore;
+    document.getElementById('soloTotal').textContent = soloTotal;
+    setTimeout(nextSoloQ, 1000);
+  }
+  nextSoloQ();
+</script>
+</body>
+</html>
